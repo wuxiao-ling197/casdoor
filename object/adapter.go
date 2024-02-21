@@ -26,10 +26,9 @@ import (
 )
 
 type Adapter struct {
-	Owner       string `xorm:"varchar(100) notnull pk" json:"owner"`
-	Name        string `xorm:"varchar(100) notnull pk" json:"name"`
-	CreatedTime string `xorm:"varchar(100)" json:"createdTime"`
-
+	Owner        string `xorm:"varchar(100) notnull pk" json:"owner"`
+	Name         string `xorm:"varchar(100) notnull pk" json:"name"`
+	CreatedTime  string `xorm:"varchar(100)" json:"createdTime"`
 	Table        string `xorm:"varchar(100)" json:"table"`
 	UseSameDb    bool   `json:"useSameDb"`
 	Type         string `xorm:"varchar(100)" json:"type"`

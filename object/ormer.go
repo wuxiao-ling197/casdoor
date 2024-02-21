@@ -187,6 +187,7 @@ func createDatabaseForPostgres(driverName string, dataSourceName string, dbName 
 	}
 }
 
+// 创建数据库连接
 func (a *Ormer) CreateDatabase() error {
 	if a.driverName == "postgres" {
 		return nil
@@ -229,6 +230,7 @@ func (a *Ormer) close() {
 	a.Engine = nil
 }
 
+// 建表，
 func (a *Ormer) createTable() {
 	showSql := conf.GetConfigBool("showSql")
 	a.Engine.ShowSQL(showSql)

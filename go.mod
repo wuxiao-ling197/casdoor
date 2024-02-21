@@ -31,6 +31,7 @@ require (
 	github.com/go-webauthn/webauthn v0.6.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.4.0
+	github.com/hlandau/passlib v1.0.11 // indirect
 	github.com/json-iterator/go v1.1.12
 	github.com/lestrrat-go/jwx v1.2.21
 	github.com/lib/pq v1.10.9
@@ -63,6 +64,7 @@ require (
 	golang.org/x/net v0.17.0
 	golang.org/x/oauth2 v0.13.0
 	google.golang.org/api v0.150.0
+	gopkg.in/hlandau/passlib.v1 v1.0.11 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0
 	layeh.com/radius v0.0.0-20221205141417-e7fbddd11d68

@@ -24,14 +24,12 @@ func GetCredManager(passwordType string) CredManager {
 		return NewPlainCredManager()
 	} else if passwordType == "salt" {
 		return NewSha256SaltCredManager()
-	} else if passwordType == "sha512-salt" {
-		return NewSha512SaltCredManager()
 	} else if passwordType == "md5-salt" {
 		return NewMd5UserSaltCredManager()
 	} else if passwordType == "bcrypt" {
 		return NewBcryptCredManager()
-	} else if passwordType == "pbkdf2-salt" {
-		return NewPbkdf2SaltCredManager()
+	} else if passwordType == "pbkdf2-sha512" {
+		return NewPbkdfSha512CredManager()
 	} else if passwordType == "argon2id" {
 		return NewArgon2idCredManager()
 	}
