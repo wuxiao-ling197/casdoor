@@ -18,12 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
-
+	"github.com/casdoor/casdoor/conf"
+	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/idp"
 	"github.com/casdoor/casdoor/util"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/xorm-io/core"
 )
 
@@ -54,6 +56,13 @@ func HasUserByField(organizationName string, field string, value string) bool {
 }
 
 func GetUserByFields(organization string, field string) (*User, error) {
+	isUsernameLowered := conf.GetConfigBool("isUsernameLowered")
+	if isUsernameLowered {
+		field = strings.ToLower(field)
+	}
+
+	field = strings.TrimSpace(field)
+
 	// check username
 	user, err := GetUserByField(organization, "name", field)
 	if err != nil || user != nil {
@@ -70,6 +79,12 @@ func GetUserByFields(organization string, field string) (*User, error) {
 
 	// check phone
 	user, err = GetUserByField(organization, "phone", field)
+	if user != nil || err != nil {
+		return user, err
+	}
+
+	// check user ID
+	user, err = GetUserByField(organization, "id", field)
 	if user != nil || err != nil {
 		return user, err
 	}
@@ -328,6 +343,31 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, lang str
 		itemsChanged = append(itemsChanged, item)
 	}
 
+	if oldUser.Gender != newUser.Gender {
+		item := GetAccountItemByName("Gender", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
+	if oldUser.Birthday != newUser.Birthday {
+		item := GetAccountItemByName("Birthday", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
+	if oldUser.Education != newUser.Education {
+		item := GetAccountItemByName("Education", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
+	if oldUser.IdCard != newUser.IdCard {
+		item := GetAccountItemByName("ID card", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
+	if oldUser.IdCardType != newUser.IdCardType {
+		item := GetAccountItemByName("ID card type", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
 	oldUserPropertiesJson, _ := json.Marshal(oldUser.Properties)
 	newUserPropertiesJson, _ := json.Marshal(newUser.Properties)
 	if string(oldUserPropertiesJson) != string(newUserPropertiesJson) {
@@ -353,6 +393,11 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, lang str
 		itemsChanged = append(itemsChanged, item)
 	}
 
+	if newUser.FaceIds != nil {
+		item := GetAccountItemByName("Face ID", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
 	if oldUser.IsAdmin != newUser.IsAdmin {
 		item := GetAccountItemByName("Is admin", organization)
 		itemsChanged = append(itemsChanged, item)
@@ -366,15 +411,47 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, lang str
 		item := GetAccountItemByName("Is deleted", organization)
 		itemsChanged = append(itemsChanged, item)
 	}
+	if oldUser.NeedUpdatePassword != newUser.NeedUpdatePassword {
+		item := GetAccountItemByName("Need update password", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
+
+	if oldUser.Balance != newUser.Balance {
+		item := GetAccountItemByName("Balance", organization)
+		itemsChanged = append(itemsChanged, item)
+	}
 
 	if oldUser.Score != newUser.Score {
 		item := GetAccountItemByName("Score", organization)
 		itemsChanged = append(itemsChanged, item)
 	}
 
-	for i := range itemsChanged {
-		if pass, err := CheckAccountItemModifyRule(itemsChanged[i], isAdmin, lang); !pass {
+	for _, accountItem := range itemsChanged {
+
+		if pass, err := CheckAccountItemModifyRule(accountItem, isAdmin, lang); !pass {
 			return pass, err
+		}
+
+		exist, userValue, err := GetUserFieldStringValue(newUser, util.SpaceToCamel(accountItem.Name))
+		if err != nil {
+			return false, err.Error()
+		}
+
+		if !exist {
+			continue
+		}
+
+		if accountItem.Regex == "" {
+			continue
+		}
+		regexSignupItem, err := regexp.Compile(accountItem.Regex)
+		if err != nil {
+			return false, err.Error()
+		}
+
+		matched := regexSignupItem.MatchString(userValue)
+		if !matched {
+			return false, fmt.Sprintf(i18n.Translate(lang, "check:The value \"%s\" for account field \"%s\" doesn't match the account item regex"), userValue, accountItem.Name)
 		}
 	}
 	return true, ""
@@ -401,4 +478,11 @@ func (user *User) IsAdminUser() bool {
 	}
 
 	return user.IsAdmin || user.IsGlobalAdmin()
+}
+
+func IsAppUser(userId string) bool {
+	if strings.HasPrefix(userId, "app/") {
+		return true
+	}
+	return false
 }

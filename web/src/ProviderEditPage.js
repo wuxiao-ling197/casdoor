@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import React from "react";
-import {Button, Card, Checkbox, Col, Input, InputNumber, Row, Select, Switch} from "antd";
+import {Button, Card, Checkbox, Col, Input, InputNumber, Radio, Row, Select, Switch} from "antd";
 import {LinkOutlined} from "@ant-design/icons";
 import * as ProviderBackend from "./backend/ProviderBackend";
 import * as OrganizationBackend from "./backend/OrganizationBackend";
@@ -39,6 +39,14 @@ require("codemirror/mode/css/css");
 
 const {Option} = Select;
 const {TextArea} = Input;
+
+const defaultUserMapping = {
+  id: "id",
+  username: "username",
+  displayName: "displayName",
+  email: "email",
+  avatarUrl: "avatarUrl",
+};
 
 class ProviderEditPage extends React.Component {
   constructor(props) {
@@ -70,7 +78,7 @@ class ProviderEditPage extends React.Component {
 
         if (res.status === "ok") {
           const provider = res.data;
-          provider.userMapping = provider.userMapping || {};
+          provider.userMapping = provider.userMapping || defaultUserMapping;
           this.setState({
             provider: provider,
           });
@@ -118,15 +126,39 @@ class ProviderEditPage extends React.Component {
       provider["cert"] = "";
       this.getCerts(value);
     }
+
     provider[key] = value;
+
+    if (provider["type"] === "WeChat") {
+      if (!provider["clientId"]) {
+        provider["signName"] = "media";
+        provider["disableSsl"] = true;
+      }
+      if (!provider["clientId2"]) {
+        provider["signName"] = "open";
+        provider["disableSsl"] = false;
+      }
+      if (!provider["disableSsl"]) {
+        provider["signName"] = "open";
+      }
+    }
+
     this.setState({
       provider: provider,
     });
   }
 
   updateUserMappingField(key, value) {
+    const requiredKeys = ["id", "username", "displayName"];
     const provider = this.state.provider;
+
+    if (value === "" && requiredKeys.includes(key)) {
+      Setting.showMessage("error", i18next.t("provider:This field is required"));
+      return;
+    }
+
     provider.userMapping[key] = value;
+
     this.setState({
       provider: provider,
     });
@@ -175,7 +207,7 @@ class ProviderEditPage extends React.Component {
         return Setting.getLabel(i18next.t("provider:App key"), i18next.t("provider:App key - Tooltip"));
       } else if (provider.type === "UCloud SMS") {
         return Setting.getLabel(i18next.t("provider:Public key"), i18next.t("provider:Public key - Tooltip"));
-      } else if (provider.type === "Msg91 SMS" || provider.type === "Infobip SMS") {
+      } else if (provider.type === "Msg91 SMS" || provider.type === "Infobip SMS" || provider.type === "OSON SMS") {
         return Setting.getLabel(i18next.t("provider:Sender Id"), i18next.t("provider:Sender Id - Tooltip"));
       } else {
         return Setting.getLabel(i18next.t("provider:Client ID"), i18next.t("provider:Client ID - Tooltip"));
@@ -212,13 +244,13 @@ class ProviderEditPage extends React.Component {
         return Setting.getLabel(i18next.t("provider:Client secret"), i18next.t("provider:Client secret - Tooltip"));
       }
     case "Email":
-      if (provider.type === "Azure ACS") {
+      if (provider.type === "Azure ACS" || provider.type === "SendGrid") {
         return Setting.getLabel(i18next.t("provider:Secret key"), i18next.t("provider:Secret key - Tooltip"));
       } else {
         return Setting.getLabel(i18next.t("general:Password"), i18next.t("general:Password - Tooltip"));
       }
     case "SMS":
-      if (provider.type === "Volc Engine SMS" || provider.type === "Amazon SNS" || provider.type === "Baidu Cloud SMS") {
+      if (provider.type === "Volc Engine SMS" || provider.type === "Amazon SNS" || provider.type === "Baidu Cloud SMS" || provider.type === "OSON SMS") {
         return Setting.getLabel(i18next.t("provider:Secret access key"), i18next.t("provider:Secret access key - Tooltip"));
       } else if (provider.type === "Huawei Cloud SMS") {
         return Setting.getLabel(i18next.t("provider:App secret"), i18next.t("provider:AppSecret - Tooltip"));
@@ -693,11 +725,11 @@ class ProviderEditPage extends React.Component {
           (this.state.provider.category === "Web3") ||
           (this.state.provider.category === "Storage" && this.state.provider.type === "Local File System") ||
           (this.state.provider.category === "SMS" && this.state.provider.type === "Custom HTTP SMS") ||
-          (this.state.provider.category === "Notification" && (this.state.provider.type === "Google Chat" || this.state.provider.type === "Custom HTTP")) ? null : (
+          (this.state.provider.category === "Notification" && (this.state.provider.type === "Google Chat" || this.state.provider.type === "Custom HTTP") || this.state.provider.type === "Balance") ? null : (
               <React.Fragment>
                 {
                   (this.state.provider.category === "Storage" && this.state.provider.type === "Google Cloud Storage") ||
-                  (this.state.provider.category === "Email" && this.state.provider.type === "Azure ACS") ||
+                  (this.state.provider.category === "Email" && (this.state.provider.type === "Azure ACS" || this.state.provider.type === "SendGrid")) ||
                   (this.state.provider.category === "Notification" && (this.state.provider.type === "Line" || this.state.provider.type === "Telegram" || this.state.provider.type === "Bark" || this.state.provider.type === "Discord" || this.state.provider.type === "Slack" || this.state.provider.type === "Pushbullet" || this.state.provider.type === "Pushover" || this.state.provider.type === "Lark" || this.state.provider.type === "Microsoft Teams")) ? null : (
                       <Row style={{marginTop: "20px"}} >
                         <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
@@ -738,7 +770,7 @@ class ProviderEditPage extends React.Component {
                 </Col>
               </Row>
               {
-                (this.state.provider.type === "WeChat Pay") || (this.state.provider.category === "Email" && this.state.provider.type === "Azure ACS") ? null : (
+                (this.state.provider.type === "WeChat Pay") || (this.state.provider.category === "Email" && (this.state.provider.type === "Azure ACS" || this.state.provider.type === "SendGrid")) ? null : (
                   <Row style={{marginTop: "20px"}} >
                     <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
                       {this.getClientSecret2Label(this.state.provider)} :
@@ -756,12 +788,54 @@ class ProviderEditPage extends React.Component {
         }
         {
           this.state.provider.type !== "WeChat" ? null : (
+            <React.Fragment>
+              <Row style={{marginTop: "20px"}} >
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                  {Setting.getLabel(i18next.t("provider:Use WeChat Media Platform in PC"), i18next.t("provider:Use WeChat Media Platform in PC - Tooltip"))} :
+                </Col>
+                <Col span={1} >
+                  <Switch disabled={!this.state.provider.clientId} checked={this.state.provider.disableSsl} onChange={checked => {
+                    this.updateProviderField("disableSsl", checked);
+                  }} />
+                </Col>
+              </Row>
+              <Row style={{marginTop: "20px"}} >
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                  {Setting.getLabel(i18next.t("token:Access token"), i18next.t("token:Access token - Tooltip"))} :
+                </Col>
+                <Col span={22} >
+                  <Input value={this.state.provider.content} disabled={!this.state.provider.disableSsl || !this.state.provider.clientId2} onChange={e => {
+                    this.updateProviderField("content", e.target.value);
+                  }} />
+                </Col>
+              </Row>
+              <Row style={{marginTop: "20px"}} >
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                  {Setting.getLabel(i18next.t("provider:Follow-up action"), i18next.t("provider:Follow-up action - Tooltip"))} :
+                </Col>
+                <Col>
+                  <Radio.Group value={this.state.provider.signName}
+                    disabled={!this.state.provider.disableSsl || !this.state.provider.clientId || !this.state.provider.clientId2}
+                    buttonStyle="solid"
+                    onChange={e => {
+                      this.updateProviderField("signName", e.target.value);
+                    }}>
+                    <Radio.Button value="open">{i18next.t("provider:Use WeChat Open Platform to login")}</Radio.Button>
+                    <Radio.Button value="media">{i18next.t("provider:Use WeChat Media Platform to login")}</Radio.Button>
+                  </Radio.Group>
+                </Col>
+              </Row>
+            </React.Fragment>
+          )
+        }
+        {
+          this.state.provider.type !== "Google" ? null : (
             <Row style={{marginTop: "20px"}} >
               <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-                {Setting.getLabel(i18next.t("provider:Enable QR code"), i18next.t("provider:Enable QR code - Tooltip"))} :
+                {Setting.getLabel(i18next.t("provider:Get phone number"), i18next.t("provider:Get phone number - Tooltip"))} :
               </Col>
               <Col span={1} >
-                <Switch checked={this.state.provider.disableSsl} onChange={checked => {
+                <Switch disabled={!this.state.provider.clientId} checked={this.state.provider.disableSsl} onChange={checked => {
                   this.updateProviderField("disableSsl", checked);
                 }} />
               </Col>
@@ -832,7 +906,7 @@ class ProviderEditPage extends React.Component {
                 </Col>
               </Row>
             )}
-            {["Custom HTTP SMS", "MinIO", "Google Cloud Storage", "Qiniu Cloud Kodo", "Synology"].includes(this.state.provider.type) ? null : (
+            {["Custom HTTP SMS", "Google Cloud Storage", "Qiniu Cloud Kodo", "Synology"].includes(this.state.provider.type) ? null : (
               <Row style={{marginTop: "20px"}} >
                 <Col style={{marginTop: "5px"}} span={2}>
                   {Setting.getLabel(i18next.t("provider:Domain"), i18next.t("provider:Domain - Tooltip"))} :
@@ -925,17 +999,19 @@ class ProviderEditPage extends React.Component {
             </React.Fragment>
           ) : this.state.provider.category === "Email" ? (
             <React.Fragment>
-              <Row style={{marginTop: "20px"}} >
-                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-                  {Setting.getLabel(i18next.t("provider:Host"), i18next.t("provider:Host - Tooltip"))} :
-                </Col>
-                <Col span={22} >
-                  <Input prefix={<LinkOutlined />} value={this.state.provider.host} onChange={e => {
-                    this.updateProviderField("host", e.target.value);
-                  }} />
-                </Col>
-              </Row>
-              {["Azure ACS"].includes(this.state.provider.type) ? null : (
+              {["SendGrid"].includes(this.state.provider.type) ? null : (
+                <Row style={{marginTop: "20px"}} >
+                  <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                    {Setting.getLabel(i18next.t("provider:Host"), i18next.t("provider:Host - Tooltip"))} :
+                  </Col>
+                  <Col span={22} >
+                    <Input prefix={<LinkOutlined />} value={this.state.provider.host} onChange={e => {
+                      this.updateProviderField("host", e.target.value);
+                    }} />
+                  </Col>
+                </Row>
+              )}
+              {["Azure ACS", "SendGrid"].includes(this.state.provider.type) ? null : (
                 <Row style={{marginTop: "20px"}} >
                   <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
                     {Setting.getLabel(i18next.t("provider:Port"), i18next.t("provider:Port - Tooltip"))} :
@@ -947,7 +1023,7 @@ class ProviderEditPage extends React.Component {
                   </Col>
                 </Row>
               )}
-              {["Azure ACS"].includes(this.state.provider.type) ? null : (
+              {["Azure ACS", "SendGrid"].includes(this.state.provider.type) ? null : (
                 <Row style={{marginTop: "20px"}} >
                   <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
                     {Setting.getLabel(i18next.t("provider:Disable SSL"), i18next.t("provider:Disable SSL - Tooltip"))} :
@@ -1013,7 +1089,7 @@ class ProviderEditPage extends React.Component {
                       this.updateProviderField("receiver", e.target.value);
                     }} />
                 </Col>
-                {["Azure ACS"].includes(this.state.provider.type) ? null : (
+                {["Azure ACS", "SendGrid"].includes(this.state.provider.type) ? null : (
                   <Button style={{marginLeft: "10px", marginBottom: "5px"}} onClick={() => ProviderEditTestEmail.connectSmtpServer(this.state.provider)} >
                     {i18next.t("provider:Test SMTP Connection")}
                   </Button>

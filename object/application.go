@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/casdoor/casdoor/idp"
+	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/util"
 	"github.com/xorm-io/core"
 )
@@ -35,10 +35,21 @@ type SignupItem struct {
 	Visible     bool   `json:"visible"`
 	Required    bool   `json:"required"`
 	Prompted    bool   `json:"prompted"`
+	CustomCss   string `json:"customCss"`
 	Label       string `json:"label"`
 	Placeholder string `json:"placeholder"`
 	Regex       string `json:"regex"`
 	Rule        string `json:"rule"`
+}
+
+type SigninItem struct {
+	Name        string `json:"name"`
+	Visible     bool   `json:"visible"`
+	Label       string `json:"label"`
+	CustomCss   string `json:"customCss"`
+	Placeholder string `json:"placeholder"`
+	Rule        string `json:"rule"`
+	IsCustom    bool   `json:"isCustom"`
 }
 
 type SamlItem struct {
@@ -58,6 +69,7 @@ type Application struct {
 	Description           string          `xorm:"varchar(100)" json:"description"`
 	Organization          string          `xorm:"varchar(100)" json:"organization"`
 	Cert                  string          `xorm:"varchar(100)" json:"cert"`
+	HeaderHtml            string          `xorm:"mediumtext" json:"headerHtml"`
 	EnablePassword        bool            `json:"enablePassword"`
 	EnableSignUp          bool            `json:"enableSignUp"`
 	EnableSigninSession   bool            `json:"enableSigninSession"`
@@ -73,6 +85,7 @@ type Application struct {
 	Providers             []*ProviderItem `xorm:"mediumtext" json:"providers"`
 	SigninMethods         []*SigninMethod `xorm:"varchar(2000)" json:"signinMethods"`
 	SignupItems           []*SignupItem   `xorm:"varchar(2000)" json:"signupItems"`
+	SigninItems           []*SigninItem   `xorm:"mediumtext" json:"signinItems"`
 	GrantTypes            []string        `xorm:"varchar(1000)" json:"grantTypes"`
 	OrganizationObj       *Organization   `xorm:"-" json:"organizationObj"`
 	CertPublicKey         string          `xorm:"-" json:"certPublicKey"`
@@ -94,6 +107,7 @@ type Application struct {
 	SignupHtml           string     `xorm:"mediumtext" json:"signupHtml"`
 	SigninHtml           string     `xorm:"mediumtext" json:"signinHtml"`
 	ThemeData            *ThemeData `xorm:"json" json:"themeData"`
+	FooterHtml           string     `xorm:"mediumtext" json:"footerHtml"`
 	FormCss              string     `xorm:"text" json:"formCss"`
 	FormCssMobile        string     `xorm:"text" json:"formCssMobile"`
 	FormOffset           int        `json:"formOffset"`
@@ -164,15 +178,6 @@ func getProviderMap(owner string) (m map[string]*Provider, err error) {
 
 	m = map[string]*Provider{}
 	for _, provider := range providers {
-		// Get QRCode only once
-		if provider.Type == "WeChat" && provider.DisableSsl && provider.Content == "" {
-			provider.Content, err = idp.GetWechatOfficialAccountQRCode(provider.ClientId2, provider.ClientSecret2)
-			if err != nil {
-				return
-			}
-			UpdateProvider(provider.Owner+"/"+provider.Name, provider)
-		}
-
 		m[provider.Name] = GetMaskedProvider(provider, true)
 	}
 
@@ -200,6 +205,106 @@ func extendApplicationWithOrg(application *Application) (err error) {
 	return
 }
 
+func extendApplicationWithSigninItems(application *Application) (err error) {
+	if len(application.SigninItems) == 0 {
+		signinItem := &SigninItem{
+			Name:        "Back button",
+			Visible:     true,
+			CustomCss:   ".back-button {\n      top: 65px;\n      left: 15px;\n      position: absolute;\n}\n.back-inner-button{}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Languages",
+			Visible:     true,
+			CustomCss:   ".login-languages {\n    top: 55px;\n    right: 5px;\n    position: absolute;\n}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Logo",
+			Visible:     true,
+			CustomCss:   ".login-logo-box {}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Signin methods",
+			Visible:     true,
+			CustomCss:   ".signin-methods {}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Username",
+			Visible:     true,
+			CustomCss:   ".login-username {}\n.login-username-input{}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Password",
+			Visible:     true,
+			CustomCss:   ".login-password {}\n.login-password-input{}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Agreement",
+			Visible:     true,
+			CustomCss:   ".login-agreement {}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Forgot password?",
+			Visible:     true,
+			CustomCss:   ".login-forget-password {\n    display: inline-flex;\n    justify-content: space-between;\n    width: 320px;\n    margin-bottom: 25px;\n}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Login button",
+			Visible:     true,
+			CustomCss:   ".login-button-box {\n    margin-bottom: 5px;\n}\n.login-button {\n    width: 100%;\n}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Signup link",
+			Visible:     true,
+			CustomCss:   ".login-signup-link {\n    margin-bottom: 24px;\n    display: flex;\n    justify-content: end;\n}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+		signinItem = &SigninItem{
+			Name:        "Providers",
+			Visible:     true,
+			CustomCss:   ".provider-img {\n      width: 30px;\n      margin: 5px;\n}\n.provider-big-img {\n      margin-bottom: 10px;\n}",
+			Placeholder: "",
+			Rule:        "None",
+		}
+		application.SigninItems = append(application.SigninItems, signinItem)
+	}
+	for idx, item := range application.SigninItems {
+		if item.Label != "" && item.CustomCss == "" {
+			application.SigninItems[idx].CustomCss = item.Label
+			application.SigninItems[idx].Label = ""
+		}
+	}
+	return
+}
+
 func extendApplicationWithSigninMethods(application *Application) (err error) {
 	if len(application.SigninMethods) == 0 {
 		if application.EnablePassword {
@@ -214,6 +319,9 @@ func extendApplicationWithSigninMethods(application *Application) (err error) {
 			signinMethod := &SigninMethod{Name: "WebAuthn", DisplayName: "WebAuthn", Rule: "None"}
 			application.SigninMethods = append(application.SigninMethods, signinMethod)
 		}
+
+		signinMethod := &SigninMethod{Name: "Face ID", DisplayName: "Face ID", Rule: "None"}
+		application.SigninMethods = append(application.SigninMethods, signinMethod)
 	}
 
 	if len(application.SigninMethods) == 0 {
@@ -250,6 +358,10 @@ func getApplication(owner string, name string) (*Application, error) {
 		if err != nil {
 			return nil, err
 		}
+		err = extendApplicationWithSigninItems(&application)
+		if err != nil {
+			return nil, err
+		}
 
 		return &application, nil
 	} else {
@@ -280,6 +392,11 @@ func GetApplicationByOrganizationName(organization string) (*Application, error)
 			return nil, err
 		}
 
+		err = extendApplicationWithSigninItems(&application)
+		if err != nil {
+			return nil, err
+		}
+
 		return &application, nil
 	} else {
 		return nil, nil
@@ -295,8 +412,8 @@ func GetApplicationByUser(user *User) (*Application, error) {
 }
 
 func GetApplicationByUserId(userId string) (application *Application, err error) {
-	owner, name := util.GetOwnerAndNameFromId(userId)
-	if owner == "app" {
+	_, name := util.GetOwnerAndNameFromId(userId)
+	if IsAppUser(userId) {
 		application, err = getApplication("admin", name)
 		return
 	}
@@ -332,6 +449,11 @@ func GetApplicationByClientId(clientId string) (*Application, error) {
 			return nil, err
 		}
 
+		err = extendApplicationWithSigninItems(&application)
+		if err != nil {
+			return nil, err
+		}
+
 		return &application, nil
 	} else {
 		return nil, nil
@@ -359,36 +481,71 @@ func GetMaskedApplication(application *Application, userId string) *Application 
 		application.FailedSigninFrozenTime = DefaultFailedSigninFrozenTime
 	}
 
+	isOrgUser := false
 	if userId != "" {
 		if isUserIdGlobalAdmin(userId) {
 			return application
 		}
 
-		user, _ := GetUser(userId)
-		if user != nil && user.IsApplicationAdmin(application) {
-			return application
+		user, err := GetUser(userId)
+		if err != nil {
+			panic(err)
+		}
+		if user != nil {
+			if user.IsApplicationAdmin(application) {
+				return application
+			}
+
+			if user.Owner == application.Organization {
+				isOrgUser = true
+			}
 		}
 	}
 
-	if application.ClientSecret != "" {
-		application.ClientSecret = "***"
+	application.ClientSecret = "***"
+	application.Cert = "***"
+	application.EnablePassword = false
+	application.EnableSigninSession = false
+	application.EnableCodeSignin = false
+	application.EnableSamlCompress = false
+	application.EnableSamlC14n10 = false
+	application.EnableSamlPostBinding = false
+	application.EnableWebAuthn = false
+	application.EnableLinkWithEmail = false
+	application.SamlReplyUrl = "***"
+
+	providerItems := []*ProviderItem{}
+	for _, providerItem := range application.Providers {
+		if providerItem.Provider != nil && (providerItem.Provider.Category == "OAuth" || providerItem.Provider.Category == "Web3" || providerItem.Provider.Category == "Captcha") {
+			providerItems = append(providerItems, providerItem)
+		}
 	}
+	application.Providers = providerItems
+
+	application.GrantTypes = nil
+	application.Tags = nil
+	application.RedirectUris = nil
+	application.TokenFormat = "***"
+	application.TokenFields = nil
+	application.ExpireInHours = -1
+	application.RefreshExpireInHours = -1
+	application.FailedSigninLimit = -1
+	application.FailedSigninFrozenTime = -1
 
 	if application.OrganizationObj != nil {
-		if application.OrganizationObj.MasterPassword != "" {
-			application.OrganizationObj.MasterPassword = "***"
-		}
-		if application.OrganizationObj.DefaultPassword != "" {
-			application.OrganizationObj.DefaultPassword = "***"
-		}
-		if application.OrganizationObj.MasterVerificationCode != "" {
-			application.OrganizationObj.MasterVerificationCode = "***"
-		}
-		if application.OrganizationObj.PasswordType != "" {
-			application.OrganizationObj.PasswordType = "***"
-		}
-		if application.OrganizationObj.PasswordSalt != "" {
-			application.OrganizationObj.PasswordSalt = "***"
+		application.OrganizationObj.MasterPassword = "***"
+		application.OrganizationObj.DefaultPassword = "***"
+		application.OrganizationObj.MasterVerificationCode = "***"
+		application.OrganizationObj.PasswordType = "***"
+		application.OrganizationObj.PasswordSalt = "***"
+		application.OrganizationObj.InitScore = -1
+		application.OrganizationObj.EnableSoftDeletion = false
+
+		if !isOrgUser {
+			application.OrganizationObj.MfaItems = nil
+			if !application.OrganizationObj.IsProfilePublic {
+				application.OrganizationObj.AccountItems = nil
+			}
 		}
 	}
 
@@ -406,8 +563,12 @@ func GetMaskedApplications(applications []*Application, userId string) []*Applic
 	return applications
 }
 
-func GetAllowedApplications(applications []*Application, userId string) ([]*Application, error) {
-	if userId == "" || isUserIdGlobalAdmin(userId) {
+func GetAllowedApplications(applications []*Application, userId string, lang string) ([]*Application, error) {
+	if userId == "" {
+		return nil, fmt.Errorf(i18n.Translate(lang, "auth:Unauthorized operation"))
+	}
+
+	if isUserIdGlobalAdmin(userId) {
 		return applications, nil
 	}
 
@@ -415,7 +576,11 @@ func GetAllowedApplications(applications []*Application, userId string) ([]*Appl
 	if err != nil {
 		return nil, err
 	}
-	if user != nil && user.IsAdmin {
+	if user == nil {
+		return nil, fmt.Errorf(i18n.Translate(lang, "auth:Unauthorized operation"))
+	}
+
+	if user.IsAdmin {
 		return applications, nil
 	}
 
@@ -512,11 +677,7 @@ func AddApplication(application *Application) (bool, error) {
 	return affected != 0, nil
 }
 
-func DeleteApplication(application *Application) (bool, error) {
-	if application.Name == "app-built-in" {
-		return false, nil
-	}
-
+func deleteApplication(application *Application) (bool, error) {
 	affected, err := ormer.Engine.ID(core.PK{application.Owner, application.Name}).Delete(&Application{})
 	if err != nil {
 		return false, err
@@ -525,12 +686,20 @@ func DeleteApplication(application *Application) (bool, error) {
 	return affected != 0, nil
 }
 
+func DeleteApplication(application *Application) (bool, error) {
+	if application.Name == "app-built-in" {
+		return false, nil
+	}
+
+	return deleteApplication(application)
+}
+
 func (application *Application) GetId() string {
 	return fmt.Sprintf("%s/%s", application.Owner, application.Name)
 }
 
 func (application *Application) IsRedirectUriValid(redirectUri string) bool {
-	redirectUris := append([]string{"http://localhost:", "https://localhost:", "http://127.0.0.1:", "http://casdoor-app"}, application.RedirectUris...)
+	redirectUris := append([]string{"http://localhost:", "https://localhost:", "http://127.0.0.1:", "http://casdoor-app", ".chromiumapp.org"}, application.RedirectUris...)
 	for _, targetUri := range redirectUris {
 		targetUriRegex := regexp.MustCompile(targetUri)
 		if targetUriRegex.MatchString(redirectUri) || strings.Contains(redirectUri, targetUri) {
@@ -596,6 +765,17 @@ func (application *Application) IsLdapEnabled() bool {
 	if len(application.SigninMethods) > 0 {
 		for _, signinMethod := range application.SigninMethods {
 			if signinMethod.Name == "LDAP" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (application *Application) IsFaceIdEnabled() bool {
+	if len(application.SigninMethods) > 0 {
+		for _, signinMethod := range application.SigninMethods {
+			if signinMethod.Name == "Face ID" {
 				return true
 			}
 		}

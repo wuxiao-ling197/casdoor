@@ -36,6 +36,7 @@ import ThemeEditor from "./common/theme/ThemeEditor";
 
 import {Controlled as CodeMirror} from "react-codemirror2";
 import "codemirror/lib/codemirror.css";
+import SigninTable from "./table/SigninTable";
 
 require("codemirror/theme/material-darker.css");
 require("codemirror/mode/htmlmixed/htmlmixed");
@@ -383,7 +384,7 @@ class ApplicationEditPage extends React.Component {
           </Col>
           <Col span={22} >
             <Select virtual={false} style={{width: "100%"}} value={this.state.application.tokenFormat} onChange={(value => {this.updateApplicationField("tokenFormat", value);})}
-              options={["JWT", "JWT-Empty", "JWT-Custom"].map((item) => Setting.getOption(item, item))}
+              options={["JWT", "JWT-Empty", "JWT-Custom", "JWT-Standard"].map((item) => Setting.getOption(item, item))}
             />
           </Col>
         </Row>
@@ -455,6 +456,10 @@ class ApplicationEditPage extends React.Component {
           </Col>
           <Col span={1} >
             <Switch checked={this.state.application.enableSigninSession} onChange={checked => {
+              if (!checked) {
+                this.updateApplicationField("enableAutoSignin", false);
+              }
+
               this.updateApplicationField("enableSigninSession", checked);
             }} />
           </Col>
@@ -465,6 +470,11 @@ class ApplicationEditPage extends React.Component {
           </Col>
           <Col span={1} >
             <Switch checked={this.state.application.enableAutoSignin} onChange={checked => {
+              if (!this.state.application.enableSigninSession && checked) {
+                Setting.showMessage("error", i18next.t("application:Please enable \"Signin session\" first before enabling \"Auto signin\""));
+                return;
+              }
+
               this.updateApplicationField("enableAutoSignin", checked);
             }} />
           </Col>
@@ -759,7 +769,7 @@ class ApplicationEditPage extends React.Component {
         </Row>
         <Row>
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("application:Form CSS"), i18next.t("application:Form CSS - Tooltip"))} :
+            {Setting.getLabel(i18next.t("application:Custom CSS"), i18next.t("application:Custom CSS - Tooltip"))} :
           </Col>
           <Col span={22}>
             <Popover placement="right" content={
@@ -771,7 +781,7 @@ class ApplicationEditPage extends React.Component {
                   }}
                 />
               </div>
-            } title={i18next.t("application:Form CSS - Edit")} trigger="click">
+            } title={i18next.t("application:Custom CSS - Edit")} trigger="click">
               <Input value={this.state.application.formCss} style={{marginBottom: "10px"}} onChange={e => {
                 this.updateApplicationField("formCss", e.target.value);
               }} />
@@ -780,7 +790,7 @@ class ApplicationEditPage extends React.Component {
         </Row>
         <Row>
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("application:Form CSS Mobile"), i18next.t("application:Form CSS Mobile - Tooltip"))} :
+            {Setting.getLabel(i18next.t("application:Custom CSS Mobile"), i18next.t("application:Custom CSS Mobile - Tooltip"))} :
           </Col>
           <Col span={22}>
             <Popover placement="right" content={
@@ -792,7 +802,7 @@ class ApplicationEditPage extends React.Component {
                   }}
                 />
               </div>
-            } title={i18next.t("application:Form CSS Mobile - Edit")} trigger="click">
+            } title={i18next.t("application:Custom CSS Mobile - Edit")} trigger="click">
               <Input value={this.state.application.formCssMobile} style={{marginBottom: "10px"}} onChange={e => {
                 this.updateApplicationField("formCssMobile", e.target.value);
               }} />
@@ -864,6 +874,78 @@ class ApplicationEditPage extends React.Component {
             }
           </Col>
         </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("application:Header HTML"), i18next.t("application:Header HTML - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Popover placement="right" content={
+              <div style={{width: "900px", height: "300px"}} >
+                <CodeMirror
+                  value={this.state.application.headerHtml}
+                  options={{mode: "htmlmixed", theme: "material-darker"}}
+                  onBeforeChange={(editor, data, value) => {
+                    this.updateApplicationField("headerHtml", value);
+                  }}
+                />
+              </div>
+            } title={i18next.t("application:Header HTML - Edit")} trigger="click">
+              <Input value={this.state.application.headerHtml} style={{marginBottom: "10px"}} onChange={e => {
+                this.updateApplicationField("headerHtml", e.target.value);
+              }} />
+            </Popover>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("application:Footer HTML"), i18next.t("application:Footer HTML - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Popover placement="right" content={
+              <div style={{width: "900px", height: "300px"}} >
+                <CodeMirror
+                  value={this.state.application.footerHtml}
+                  options={{mode: "htmlmixed", theme: "material-darker"}}
+                  onBeforeChange={(editor, data, value) => {
+                    this.updateApplicationField("footerHtml", value);
+                  }}
+                />
+              </div>
+            } title={i18next.t("application:Footer HTML - Edit")} trigger="click">
+              <Input value={this.state.application.footerHtml} style={{marginBottom: "10px"}} onChange={e => {
+                this.updateApplicationField("footerHtml", e.target.value);
+              }} />
+            </Popover>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+          </Col>
+          <Button style={{marginLeft: "10px", marginBottom: "5px"}} onClick={() => this.updateApplicationField("footerHtml", Setting.getDefaultFooterContent())} >
+            {i18next.t("provider:Reset to Default HTML")}
+          </Button>
+          <Button style={{marginLeft: "10px", marginBottom: "5px"}} onClick={() => this.updateApplicationField("footerHtml", Setting.getEmptyFooterContent())} >
+            {i18next.t("application:Reset to Empty")}
+          </Button>
+        </Row>
+        {
+          <React.Fragment>
+            <Row style={{marginTop: "20px"}} >
+              <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                {Setting.getLabel(i18next.t("application:Signin items"), i18next.t("application:Signin items - Tooltip"))} :
+              </Col>
+              <Col span={22} >
+                <SigninTable
+                  title={i18next.t("application:Signin items")}
+                  table={this.state.application.signinItems}
+                  onUpdateTable={(value) => {
+                    this.updateApplicationField("signinItems", value);
+                  }}
+                />
+              </Col>
+            </Row>
+          </React.Fragment>
+        }
         {
           !this.state.application.enableSignUp ? null : (
             <React.Fragment>
@@ -1008,7 +1090,7 @@ class ApplicationEditPage extends React.Component {
   submitApplicationEdit(exitAfterSave) {
     const application = Setting.deepCopy(this.state.application);
     application.providers = application.providers?.filter(provider => this.state.providers.map(provider => provider.name).includes(provider.name));
-    application.signinMethods = application.signinMethods?.filter(signinMethod => ["Password", "Verification code", "WebAuthn", "LDAP"].includes(signinMethod.name));
+    application.signinMethods = application.signinMethods?.filter(signinMethod => ["Password", "Verification code", "WebAuthn", "LDAP", "Face ID"].includes(signinMethod.name));
 
     ApplicationBackend.updateApplication("admin", this.state.applicationName, application)
       .then((res) => {

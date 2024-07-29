@@ -50,7 +50,7 @@ type Provider struct {
 
 	Host       string `xorm:"varchar(100)" json:"host"`
 	Port       int    `json:"port"`
-	DisableSsl bool   `json:"disableSsl"` // If the provider type is WeChat, DisableSsl means EnableQRCode
+	DisableSsl bool   `json:"disableSsl"` // If the provider type is WeChat, DisableSsl means EnableQRCode, if type is Google, it means sync phone number
 	Title      string `xorm:"varchar(100)" json:"title"`
 	Content    string `xorm:"varchar(2000)" json:"content"` // If provider type is WeChat, Content means QRCode string by Base64 encoding
 	Receiver   string `xorm:"varchar(100)" json:"receiver"`
@@ -309,11 +309,15 @@ func GetPaymentProvider(p *Provider) (pp.PaymentProvider, error) {
 			return nil, err
 		}
 		return pp, nil
+	} else if typ == "Balance" {
+		pp, err := pp.NewBalancePaymentProvider()
+		if err != nil {
+			return nil, err
+		}
+		return pp, nil
 	} else {
 		return nil, fmt.Errorf("the payment provider type: %s is not supported", p.Type)
 	}
-
-	return nil, nil
 }
 
 func (p *Provider) GetId() string {

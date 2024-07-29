@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/casdoor/casdoor/object"
+
 	"github.com/beego/beego/context"
 	"github.com/casdoor/casdoor/authz"
 	"github.com/casdoor/casdoor/util"
@@ -33,20 +35,13 @@ type Object struct {
 }
 
 func getUsername(ctx *context.Context) (username string) {
-	defer func() {
-		if r := recover(); r != nil {
-			username, _ = getUsernameByClientIdSecret(ctx)
-		}
-	}()
-
-	username = ctx.Input.Session("username").(string)
-
-	if username == "" {
+	username, ok := ctx.Input.Session("username").(string)
+	if !ok || username == "" {
 		username, _ = getUsernameByClientIdSecret(ctx)
 	}
 
 	if username == "" {
-		username = getUsernameByKeys(ctx)
+		username, _ = getUsernameByKeys(ctx)
 	}
 	return
 }
@@ -66,17 +61,27 @@ func getObject(ctx *context.Context) (string, string) {
 	path := ctx.Request.URL.Path
 
 	if method == http.MethodGet {
-		if ctx.Request.URL.Path == "/api/get-policies" && ctx.Input.Query("id") == "/" {
-			adapterId := ctx.Input.Query("adapterId")
-			if adapterId != "" {
-				return util.GetOwnerAndNameFromIdNoCheck(adapterId)
+		if ctx.Request.URL.Path == "/api/get-policies" {
+			if ctx.Input.Query("id") == "/" {
+				adapterId := ctx.Input.Query("adapterId")
+				if adapterId != "" {
+					return util.GetOwnerAndNameFromIdNoCheck(adapterId)
+				}
+			} else {
+				// query == "?id=built-in/admin"
+				id := ctx.Input.Query("id")
+				if id != "" {
+					return util.GetOwnerAndNameFromIdNoCheck(id)
+				}
 			}
 		}
 
-		// query == "?id=built-in/admin"
-		id := ctx.Input.Query("id")
-		if id != "" {
-			return util.GetOwnerAndNameFromIdNoCheck(id)
+		if !(strings.HasPrefix(ctx.Request.URL.Path, "/api/get-") && strings.HasSuffix(ctx.Request.URL.Path, "s")) {
+			// query == "?id=built-in/admin"
+			id := ctx.Input.Query("id")
+			if id != "" {
+				return util.GetOwnerAndNameFromIdNoCheck(id)
+			}
 		}
 
 		owner := ctx.Input.Query("owner")
@@ -201,5 +206,17 @@ func ApiFilter(ctx *context.Context) {
 
 	if !isAllowed {
 		denyRequest(ctx)
+		record, err := object.NewRecord(ctx)
+		if err != nil {
+			return
+		}
+
+		record.Organization = subOwner
+		record.User = subName // auth:Unauthorized operation
+		record.Response = fmt.Sprintf("{status:\"error\", msg:\"%s\"}", T(ctx, "auth:Unauthorized operation"))
+
+		util.SafeGoroutine(func() {
+			object.AddRecord(record)
+		})
 	}
 }

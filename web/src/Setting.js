@@ -69,7 +69,7 @@ export function getThemeData(organization, application) {
 }
 
 export function getAlgorithm(themeAlgorithmNames) {
-  return themeAlgorithmNames.map((algorithmName) => {
+  return themeAlgorithmNames.sort().reverse().map((algorithmName) => {
     if (algorithmName === "dark") {
       return theme.darkAlgorithm;
     }
@@ -87,6 +87,14 @@ export function getAlgorithmNames(themeData) {
   }
 
   return algorithms;
+}
+
+export function getLogo(themes) {
+  if (themes.includes("dark")) {
+    return `${StaticBaseUrl}/img/casdoor-logo_1185x256_dark.png`;
+  } else {
+    return `${StaticBaseUrl}/img/casdoor-logo_1185x256.png`;
+  }
 }
 
 export const OtherProviderInfo = {
@@ -143,6 +151,10 @@ export const OtherProviderInfo = {
       logo: `${StaticBaseUrl}/img/social_msg91.ico`,
       url: "https://control.msg91.com/app/",
     },
+    "OSON SMS": {
+      logo: "https://osonsms.com/images/osonsms-logo.svg",
+      url: "https://osonsms.com/",
+    },
     "Custom HTTP SMS": {
       logo: `${StaticBaseUrl}/img/social_default.png`,
       url: "https://casdoor.org/docs/provider/sms/overview",
@@ -168,6 +180,10 @@ export const OtherProviderInfo = {
     "Azure ACS": {
       logo: `${StaticBaseUrl}/img/social_azure.png`,
       url: "https://learn.microsoft.com/zh-cn/azure/communication-services",
+    },
+    "SendGrid": {
+      logo: `${StaticBaseUrl}/img/email_sendgrid.png`,
+      url: "https://sendgrid.com/",
     },
     "Custom HTTP Email": {
       logo: `${StaticBaseUrl}/img/social_default.png`,
@@ -229,6 +245,10 @@ export const OtherProviderInfo = {
   Payment: {
     "Dummy": {
       logo: `${StaticBaseUrl}/img/payment_paypal.png`,
+      url: "",
+    },
+    "Balance": {
+      logo: `${StaticBaseUrl}/img/payment_balance.svg`,
       url: "",
     },
     "Alipay": {
@@ -703,6 +723,15 @@ export function goToLinkSoft(ths, link) {
   ths.props.history.push(link);
 }
 
+export function goToLinkSoftOrJumpSelf(ths, link) {
+  if (link.startsWith("http")) {
+    goToLink(link);
+    return;
+  }
+
+  ths.props.history.push(link);
+}
+
 export function showMessage(type, text) {
   if (type === "success") {
     message.success(text);
@@ -994,6 +1023,7 @@ export function getProviderTypeOptions(category) {
         {id: "SUBMAIL", name: "SUBMAIL"},
         {id: "Mailtrap", name: "Mailtrap"},
         {id: "Azure ACS", name: "Azure ACS"},
+        {id: "SendGrid", name: "SendGrid"},
         {id: "Custom HTTP Email", name: "Custom HTTP Email"},
       ]
     );
@@ -1005,6 +1035,7 @@ export function getProviderTypeOptions(category) {
         {id: "Azure ACS", name: "Azure ACS"},
         {id: "Custom HTTP SMS", name: "Custom HTTP SMS"},
         {id: "Mock SMS", name: "Mock SMS"},
+        {id: "OSON SMS", name: "OSON SMS"},
         {id: "Infobip SMS", name: "Infobip SMS"},
         {id: "Tencent Cloud SMS", name: "Tencent Cloud SMS"},
         {id: "Baidu Cloud SMS", name: "Baidu Cloud SMS"},
@@ -1040,6 +1071,7 @@ export function getProviderTypeOptions(category) {
   } else if (category === "Payment") {
     return ([
       {id: "Dummy", name: "Dummy"},
+      {id: "Balance", name: "Balance"},
       {id: "Alipay", name: "Alipay"},
       {id: "WeChat Pay", name: "WeChat Pay"},
       {id: "PayPal", name: "PayPal"},
@@ -1087,7 +1119,9 @@ export function getProviderTypeOptions(category) {
 }
 
 export function getCryptoAlgorithmOptions(cryptoAlgorithm) {
-  if (cryptoAlgorithm === "RS256") {
+  if (cryptoAlgorithm.startsWith("ES")) {
+    return [];
+  } else {
     return (
       [
         {id: 1024, name: "1024"},
@@ -1095,26 +1129,6 @@ export function getCryptoAlgorithmOptions(cryptoAlgorithm) {
         {id: 4096, name: "4096"},
       ]
     );
-  } else if (cryptoAlgorithm === "HS256" || cryptoAlgorithm === "ES256") {
-    return (
-      [
-        {id: 256, name: "256"},
-      ]
-    );
-  } else if (cryptoAlgorithm === "ES384") {
-    return (
-      [
-        {id: 384, name: "384"},
-      ]
-    );
-  } else if (cryptoAlgorithm === "ES521") {
-    return (
-      [
-        {id: 521, name: "521"},
-      ]
-    );
-  } else {
-    return [];
   }
 }
 
@@ -1160,12 +1174,16 @@ export function isLdapEnabled(application) {
   return isSigninMethodEnabled(application, "LDAP");
 }
 
+export function isFaceIdEnabled(application) {
+  return isSigninMethodEnabled(application, "Face ID");
+}
+
 export function getLoginLink(application) {
   let url;
   if (application === null) {
     url = null;
-  } else if (!isPasswordEnabled(application) && window.location.pathname.includes("/auto-signup/oauth/authorize")) {
-    url = window.location.href.replace("/auto-signup/oauth/authorize", "/login/oauth/authorize");
+  } else if (window.location.pathname.includes("/signup/oauth/authorize")) {
+    url = window.location.pathname.replace("/signup/oauth/authorize", "/login/oauth/authorize");
   } else if (authConfig.appName === application.name) {
     url = "/login";
   } else if (application.signinUrl === "") {
@@ -1173,12 +1191,7 @@ export function getLoginLink(application) {
   } else {
     url = application.signinUrl;
   }
-  return url;
-}
-
-export function renderLoginLink(application, text) {
-  const url = getLoginLink(application);
-  return renderLink(url, text, null);
+  return url + window.location.search;
 }
 
 export function redirectToLoginPage(application, history) {
@@ -1205,7 +1218,7 @@ function renderLink(url, text, onClick) {
     );
   } else if (url.startsWith("http")) {
     return (
-      <a target="_blank" rel="noopener noreferrer" style={{float: "right"}} href={url} onClick={() => {
+      <a style={{float: "right"}} href={url} onClick={() => {
         if (onClick !== null) {
           onClick();
         }
@@ -1220,8 +1233,8 @@ export function renderSignupLink(application, text) {
   let url;
   if (application === null) {
     url = null;
-  } else if (!isPasswordEnabled(application) && window.location.pathname.includes("/login/oauth/authorize")) {
-    url = window.location.href.replace("/login/oauth/authorize", "/auto-signup/oauth/authorize");
+  } else if (window.location.pathname.includes("/login/oauth/authorize")) {
+    url = window.location.pathname.replace("/login/oauth/authorize", "/signup/oauth/authorize");
   } else if (authConfig.appName === application.name) {
     url = "/signup";
   } else {
@@ -1233,10 +1246,10 @@ export function renderSignupLink(application, text) {
   }
 
   const storeSigninUrl = () => {
-    sessionStorage.setItem("signinUrl", window.location.href);
+    sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
   };
 
-  return renderLink(url, text, storeSigninUrl);
+  return renderLink(url + window.location.search, text, storeSigninUrl);
 }
 
 export function renderForgetLink(application, text) {
@@ -1253,7 +1266,11 @@ export function renderForgetLink(application, text) {
     }
   }
 
-  return renderLink(url, text, null);
+  const storeSigninUrl = () => {
+    sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
+  };
+
+  return renderLink(url, text, storeSigninUrl);
 }
 
 export function renderHelmet(application) {
@@ -1451,7 +1468,20 @@ export function getUserCommonFields() {
   return ["Owner", "Name", "CreatedTime", "UpdatedTime", "DeletedTime", "Id", "Type", "Password", "PasswordSalt", "DisplayName", "FirstName", "LastName", "Avatar", "PermanentAvatar",
     "Email", "EmailVerified", "Phone", "Location", "Address", "Affiliation", "Title", "IdCardType", "IdCard", "Homepage", "Bio", "Tag", "Region",
     "Language", "Gender", "Birthday", "Education", "Score", "Ranking", "IsDefaultAvatar", "IsOnline", "IsAdmin", "IsForbidden", "IsDeleted", "CreatedIp",
-    "PreferredMfaType", "TotpSecret", "SignupApplication"];
+    "PreferredMfaType", "TotpSecret", "SignupApplication", "RecoveryCodes", "MfaPhoneEnabled", "MfaEmailEnabled"];
+}
+
+export function getDefaultFooterContent() {
+  return "Powered by <a target=\"_blank\" href=\"https://casdoor.org\" rel=\"noreferrer\"><img style=\"padding-bottom: 3px\" height=\"20\" alt=\"Casdoor\" src=\"https://cdn.casbin.org/img/casdoor-logo_1185x256.png\"/></a>";
+}
+
+export function getEmptyFooterContent() {
+  return `<style>
+    #footer {
+        display: none;
+    }
+<style>
+  `;
 }
 
 export function getDefaultHtmlEmailContent() {
@@ -1490,4 +1520,14 @@ export function getDefaultHtmlEmailContent() {
 </div>
 </body>
 </html>`;
+}
+
+export function getCurrencyText(product) {
+  if (product?.currency === "USD") {
+    return i18next.t("product:USD");
+  } else if (product?.currency === "CNY") {
+    return i18next.t("product:CNY");
+  } else {
+    return "(Unknown currency)";
+  }
 }

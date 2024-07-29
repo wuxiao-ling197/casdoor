@@ -44,6 +44,8 @@ type Response struct {
 }
 
 type Captcha struct {
+	Owner         string `json:"owner"`
+	Name          string `json:"name"`
 	Type          string `json:"type"`
 	AppKey        string `json:"appKey"`
 	Scene         string `json:"scene"`
@@ -94,7 +96,7 @@ func (c *ApiController) Signup() {
 		return
 	}
 	if application == nil {
-		c.ResponseError(fmt.Sprintf(c.T("auth:The application: %s does not exist")), authForm.Application)
+		c.ResponseError(fmt.Sprintf(c.T("auth:The application: %s does not exist"), authForm.Application))
 		return
 	}
 
@@ -110,7 +112,7 @@ func (c *ApiController) Signup() {
 	}
 
 	if organization == nil {
-		c.ResponseError(fmt.Sprintf(c.T("auth:The organization: %s does not exist")), authForm.Organization)
+		c.ResponseError(fmt.Sprintf(c.T("auth:The organization: %s does not exist"), authForm.Organization))
 		return
 	}
 
@@ -131,7 +133,12 @@ func (c *ApiController) Signup() {
 	}
 
 	if application.IsSignupItemVisible("Email") && application.GetSignupItemRule("Email") != "No verification" && authForm.Email != "" {
-		checkResult := object.CheckVerificationCode(authForm.Email, authForm.EmailCode, c.GetAcceptLanguage())
+		var checkResult *object.VerifyResult
+		checkResult, err = object.CheckVerificationCode(authForm.Email, authForm.EmailCode, c.GetAcceptLanguage())
+		if err != nil {
+			c.ResponseError(c.T(err.Error()))
+			return
+		}
 		if checkResult.Code != object.VerificationSuccess {
 			c.ResponseError(checkResult.Msg)
 			return
@@ -141,7 +148,13 @@ func (c *ApiController) Signup() {
 	var checkPhone string
 	if application.IsSignupItemVisible("Phone") && application.GetSignupItemRule("Phone") != "No verification" && authForm.Phone != "" {
 		checkPhone, _ = util.GetE164Number(authForm.Phone, authForm.CountryCode)
-		checkResult := object.CheckVerificationCode(checkPhone, authForm.PhoneCode, c.GetAcceptLanguage())
+
+		var checkResult *object.VerifyResult
+		checkResult, err = object.CheckVerificationCode(checkPhone, authForm.PhoneCode, c.GetAcceptLanguage())
+		if err != nil {
+			c.ResponseError(c.T(err.Error()))
+			return
+		}
 		if checkResult.Code != object.VerificationSuccess {
 			c.ResponseError(checkResult.Msg)
 			return
@@ -156,7 +169,11 @@ func (c *ApiController) Signup() {
 
 	username := authForm.Username
 	if !application.IsSignupItemVisible("Username") {
-		username = id
+		if organization.UseEmailAsUsername && application.IsSignupItemVisible("Email") {
+			username = authForm.Email
+		} else {
+			username = id
+		}
 	}
 
 	initScore, err := organization.GetInitScore()
@@ -248,22 +265,24 @@ func (c *ApiController) Signup() {
 		c.SetSessionUsername(user.GetId())
 	}
 
-	err = object.DisableVerificationCode(authForm.Email)
-	if err != nil {
-		c.ResponseError(err.Error())
-		return
+	if authForm.Email != "" {
+		err = object.DisableVerificationCode(authForm.Email)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 	}
 
-	err = object.DisableVerificationCode(checkPhone)
-	if err != nil {
-		c.ResponseError(err.Error())
-		return
+	if checkPhone != "" {
+		err = object.DisableVerificationCode(checkPhone)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 	}
 
-	record := object.NewRecord(c.Ctx)
-	record.Organization = application.Organization
-	record.User = user.Name
-	util.SafeGoroutine(func() { object.AddRecord(record) })
+	c.Ctx.Input.SetParam("recordUserId", user.GetId())
+	c.Ctx.Input.SetParam("recordSignup", "true")
 
 	userId := user.GetId()
 	util.LogInfo(c.Ctx, "API: [%s] is signed up as new user", userId)
@@ -296,6 +315,7 @@ func (c *ApiController) Logout() {
 		}
 
 		c.ClearUserSession()
+		c.ClearTokenSession()
 		owner, username := util.GetOwnerAndNameFromId(user)
 		_, err := object.DeleteSessionId(util.GetSessionId(owner, username, object.CasdoorApplication), c.Ctx.Input.CruSession.SessionID())
 		if err != nil {
@@ -342,6 +362,7 @@ func (c *ApiController) Logout() {
 		}
 
 		c.ClearUserSession()
+		c.ClearTokenSession()
 		// TODO https://github.com/casdoor/casdoor/pull/1494#discussion_r1095675265
 		owner, username := util.GetOwnerAndNameFromId(user)
 
@@ -422,6 +443,17 @@ func (c *ApiController) GetAccount() {
 		return
 	}
 
+	accessToken := c.GetSessionToken()
+	if accessToken == "" {
+		accessToken, err = object.GetAccessTokenByUser(user, c.Ctx.Request.Host)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+		c.SetSessionToken(accessToken)
+	}
+	u.AccessToken = accessToken
+
 	resp := Response{
 		Status: "ok",
 		Sub:    user.Id,
@@ -448,7 +480,12 @@ func (c *ApiController) GetUserinfo() {
 
 	scope, aud := c.GetSessionOidc()
 	host := c.Ctx.Request.Host
-	userInfo := object.GetUserInfo(user, scope, aud, host)
+
+	userInfo, err := object.GetUserInfo(user, scope, aud, host)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
 	c.Data["json"] = userInfo
 	c.ServeJSON()
@@ -503,10 +540,12 @@ func (c *ApiController) GetCaptcha() {
 				return
 			}
 
-			c.ResponseOk(Captcha{Type: captchaProvider.Type, CaptchaId: id, CaptchaImage: img})
+			c.ResponseOk(Captcha{Owner: captchaProvider.Owner, Name: captchaProvider.Name, Type: captchaProvider.Type, CaptchaId: id, CaptchaImage: img})
 			return
 		} else if captchaProvider.Type != "" {
 			c.ResponseOk(Captcha{
+				Owner:         captchaProvider.Owner,
+				Name:          captchaProvider.Name,
 				Type:          captchaProvider.Type,
 				SubType:       captchaProvider.SubType,
 				ClientId:      captchaProvider.ClientId,

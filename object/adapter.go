@@ -177,6 +177,7 @@ func (adapter *Adapter) InitAdapter() error {
 		dataSourceName = strings.ReplaceAll(dataSourceName, "dbi.", "db.")
 	}
 
+	dataSourceName = conf.ReplaceDataSourceNameByDocker(dataSourceName)
 	engine, err := xorm.NewEngine(driverName, dataSourceName)
 	if err != nil {
 		return err

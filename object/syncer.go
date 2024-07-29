@@ -39,11 +39,17 @@ type Syncer struct {
 	Type         string `xorm:"varchar(100)" json:"type"`
 	DatabaseType string `xorm:"varchar(100)" json:"databaseType"`
 	SslMode      string `xorm:"varchar(100)" json:"sslMode"`
+	SshType      string `xorm:"varchar(100)" json:"sshType"`
 
 	Host             string         `xorm:"varchar(100)" json:"host"`
 	Port             int            `json:"port"`
 	User             string         `xorm:"varchar(100)" json:"user"`
 	Password         string         `xorm:"varchar(150)" json:"password"`
+	SshHost          string         `xorm:"varchar(100)" json:"sshHost"`
+	SshPort          int            `json:"sshPort"`
+	SshUser          string         `xorm:"varchar(100)" json:"sshUser"`
+	SshPassword      string         `xorm:"varchar(150)" json:"sshPassword"`
+	Cert             string         `xorm:"varchar(100)" json:"cert"`
 	Database         string         `xorm:"varchar(100)" json:"database"`
 	Table            string         `xorm:"varchar(100)" json:"table"`
 	TableColumns     []*TableColumn `xorm:"mediumtext" json:"tableColumns"`
@@ -149,7 +155,8 @@ func GetMaskedSyncers(syncers []*Syncer, errs ...error) ([]*Syncer, error) {
 
 func UpdateSyncer(id string, syncer *Syncer) (bool, error) {
 	owner, name := util.GetOwnerAndNameFromId(id)
-	if s, err := getSyncer(owner, name); err != nil {
+	s, err := getSyncer(owner, name)
+	if err != nil {
 		return false, err
 	} else if s == nil {
 		return false, nil
@@ -157,7 +164,7 @@ func UpdateSyncer(id string, syncer *Syncer) (bool, error) {
 
 	session := ormer.Engine.ID(core.PK{owner, name}).AllCols()
 	if syncer.Password == "***" {
-		session.Omit("password")
+		syncer.Password = s.Password
 	}
 	affected, err := session.Update(syncer)
 	if err != nil {
@@ -278,4 +285,26 @@ func RunSyncer(syncer *Syncer) error {
 	}
 
 	return syncer.syncUsers()
+}
+
+func TestSyncerDb(syncer Syncer) error {
+	oldSyncer, err := getSyncer(syncer.Owner, syncer.Name)
+	if err != nil {
+		return err
+	}
+
+	if syncer.Password == "***" {
+		syncer.Password = oldSyncer.Password
+	}
+
+	err = syncer.initAdapter()
+	if err != nil {
+		return err
+	}
+
+	err = syncer.Ormer.Engine.Ping()
+	if err != nil {
+		return err
+	}
+	return nil
 }

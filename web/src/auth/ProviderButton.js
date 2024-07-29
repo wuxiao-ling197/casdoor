@@ -17,7 +17,6 @@ import i18next from "i18next";
 import * as Provider from "./Provider";
 import {getProviderLogoURL} from "../Setting";
 import {GithubLoginButton, GoogleLoginButton} from "react-social-login-buttons";
-import {authViaMetaMask, authViaWeb3Onboard} from "./Web3Auth";
 import QqLoginButton from "./QqLoginButton";
 import FacebookLoginButton from "./FacebookLoginButton";
 import WeiboLoginButton from "./WeiboLoginButton";
@@ -43,8 +42,7 @@ import OktaLoginButton from "./OktaLoginButton";
 import DouyinLoginButton from "./DouyinLoginButton";
 import LoginButton from "./LoginButton";
 import * as AuthBackend from "./AuthBackend";
-import {getEvent} from "./Util";
-import {Modal} from "antd";
+import {WechatOfficialAccountModal} from "./Util";
 
 function getSigninButton(provider) {
   const text = i18next.t("login:Sign in with {type}").replace("{type}", provider.displayName !== "" ? provider.displayName : provider.type);
@@ -123,52 +121,48 @@ function goToSamlUrl(provider, location) {
 
 export function goToWeb3Url(application, provider, method) {
   if (provider.type === "MetaMask") {
-    authViaMetaMask(application, provider, method);
+    import("./Web3Auth")
+      .then(module => {
+        const authViaMetaMask = module.authViaMetaMask;
+        authViaMetaMask(application, provider, method);
+      });
   } else if (provider.type === "Web3Onboard") {
-    authViaWeb3Onboard(application, provider, method);
+    import("./Web3Auth")
+      .then(module => {
+        const authViaWeb3Onboard = module.authViaWeb3Onboard;
+        authViaWeb3Onboard(application, provider, method);
+      });
   }
 }
 
 export function renderProviderLogo(provider, application, width, margin, size, location) {
   if (size === "small") {
     if (provider.category === "OAuth") {
-      if (provider.type === "WeChat" && provider.clientId2 !== "" && provider.clientSecret2 !== "" && provider.content !== "" && provider.disableSsl === true && !navigator.userAgent.includes("MicroMessenger")) {
-        const info = async() => {
-          const t1 = setInterval(await getEvent, 1000, application, provider);
-          {Modal.info({
-            title: i18next.t("provider:Please use WeChat and scan the QR code to sign in"),
-            content: (
-              <div>
-                <img width={256} height={256} src = {"data:image/png;base64," + provider.content} alt="Wechat QR code" style={{margin: margin}} />
-              </div>
-            ),
-            onOk() {
-              window.clearInterval(t1);
-            },
-          });}
-        };
+      if (provider.type === "WeChat" && provider.clientId2 !== "" && provider.clientSecret2 !== "" && provider.disableSsl === true && !navigator.userAgent.includes("MicroMessenger")) {
         return (
           <a key={provider.displayName} >
-            <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} style={{margin: margin}} onClick={info} />
+            <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} className="provider-img" style={{margin: margin}} onClick={() => {
+              WechatOfficialAccountModal(application, provider, "signup");
+            }} />
           </a>
         );
       } else {
         return (
           <a key={provider.displayName} href={Provider.getAuthUrl(application, provider, "signup")}>
-            <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} style={{margin: margin}} />
+            <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} className="provider-img" style={{margin: margin}} />
           </a>
         );
       }
     } else if (provider.category === "SAML") {
       return (
         <a key={provider.displayName} onClick={() => goToSamlUrl(provider, location)}>
-          <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} style={{margin: margin}} />
+          <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} className="provider-img" style={{margin: margin}} />
         </a>
       );
     } else if (provider.category === "Web3") {
       return (
         <a key={provider.displayName} onClick={() => goToWeb3Url(application, provider, "signup")}>
-          <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} style={{margin: margin}} />
+          <img width={width} height={width} src={getProviderLogoURL(provider)} alt={provider.displayName} className="provider-img" style={{margin: margin}} />
         </a>
       );
     }
@@ -178,23 +172,23 @@ export function renderProviderLogo(provider, application, width, margin, size, l
     const customAStyle = {display: "block", height: "55px", color: "#000"};
     const customButtonStyle = {display: "flex", alignItems: "center", width: "calc(100% - 10px)", height: "50px", margin: "5px", padding: "0 10px", backgroundColor: "transparent", boxShadow: "0px 1px 3px rgba(0,0,0,0.5)", border: "0px", borderRadius: "3px", cursor: "pointer"};
     const customImgStyle = {justfyContent: "space-between"};
-    const customSpanStyle = {textAlign: "center", lineHeight: "50px", width: "100%", fontSize: "19px"};
+    const customSpanStyle = {textAlign: "center", width: "100%", fontSize: "19px"};
     if (provider.category === "OAuth") {
       return (
         <a key={provider.displayName} href={Provider.getAuthUrl(application, provider, "signup")} style={customAStyle}>
-          <button style={customButtonStyle}>
-            <img width={26} src={getProviderLogoURL(provider)} alt={provider.displayName} style={customImgStyle} />
+          <div style={customButtonStyle}>
+            <img width={26} src={getProviderLogoURL(provider)} alt={provider.displayName} className="provider-img" style={customImgStyle} />
             <span style={customSpanStyle}>{text}</span>
-          </button>
+          </div>
         </a>
       );
     } else if (provider.category === "SAML") {
       return (
         <a key={provider.displayName} onClick={() => goToSamlUrl(provider, location)} style={customAStyle}>
-          <button style={customButtonStyle}>
-            <img width={26} src={getProviderLogoURL(provider)} alt={provider.displayName} style={customImgStyle} />
+          <div style={customButtonStyle}>
+            <img width={26} src={getProviderLogoURL(provider)} alt={provider.displayName} className="provider-img" style={customImgStyle} />
             <span style={customSpanStyle}>{text}</span>
-          </button>
+          </div>
         </a>
       );
     }
@@ -202,7 +196,7 @@ export function renderProviderLogo(provider, application, width, margin, size, l
     // big button, for disable password signin
     if (provider.category === "SAML") {
       return (
-        <div key={provider.displayName} style={{marginBottom: "10px"}}>
+        <div key={provider.displayName} className="provider-big-img">
           <a onClick={() => goToSamlUrl(provider, location)}>
             {
               getSigninButton(provider)
@@ -212,7 +206,7 @@ export function renderProviderLogo(provider, application, width, margin, size, l
       );
     } else if (provider.category === "Web3") {
       return (
-        <div key={provider.displayName} style={{marginBottom: "10px"}}>
+        <div key={provider.displayName} className="provider-big-img">
           <a onClick={() => goToWeb3Url(application, provider, "signup")}>
             {
               getSigninButton(provider)
@@ -222,7 +216,7 @@ export function renderProviderLogo(provider, application, width, margin, size, l
       );
     } else {
       return (
-        <div key={provider.displayName} style={{marginBottom: "10px"}}>
+        <div key={provider.displayName} className="provider-big-img">
           <a href={Provider.getAuthUrl(application, provider, "signup")}>
             {
               getSigninButton(provider)

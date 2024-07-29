@@ -61,7 +61,8 @@ func initAPI() {
 	beego.Router("/api/acs", &controllers.ApiController{}, "POST:HandleSamlLogin")
 	beego.Router("/api/saml/metadata", &controllers.ApiController{}, "GET:GetSamlMeta")
 	beego.Router("/api/saml/redirect/:owner/:application", &controllers.ApiController{}, "*:HandleSamlRedirect")
-	beego.Router("/api/webhook", &controllers.ApiController{}, "POST:HandleOfficialAccountEvent")
+	beego.Router("/api/webhook", &controllers.ApiController{}, "*:HandleOfficialAccountEvent")
+	beego.Router("/api/get-qrcode", &controllers.ApiController{}, "GET:GetQRCode")
 	beego.Router("/api/get-webhook-event", &controllers.ApiController{}, "GET:GetWebhookEventType")
 	beego.Router("/api/get-captcha-status", &controllers.ApiController{}, "GET:GetCaptchaStatus")
 	beego.Router("/api/callback", &controllers.ApiController{}, "POST:Callback")
@@ -220,6 +221,12 @@ func initAPI() {
 	beego.Router("/api/add-subscription", &controllers.ApiController{}, "POST:AddSubscription")
 	beego.Router("/api/delete-subscription", &controllers.ApiController{}, "POST:DeleteSubscription")
 
+	beego.Router("/api/get-transactions", &controllers.ApiController{}, "GET:GetTransactions")
+	beego.Router("/api/get-transaction", &controllers.ApiController{}, "GET:GetTransaction")
+	beego.Router("/api/update-transaction", &controllers.ApiController{}, "POST:UpdateTransaction")
+	beego.Router("/api/add-transaction", &controllers.ApiController{}, "POST:AddTransaction")
+	beego.Router("/api/delete-transaction", &controllers.ApiController{}, "POST:DeleteTransaction")
+
 	beego.Router("/api/get-system-info", &controllers.ApiController{}, "GET:GetSystemInfo")
 	beego.Router("/api/get-version-info", &controllers.ApiController{}, "GET:GetVersionInfo")
 	beego.Router("/api/health", &controllers.ApiController{}, "GET:Health")
@@ -232,6 +239,7 @@ func initAPI() {
 	beego.Router("/api/add-syncer", &controllers.ApiController{}, "POST:AddSyncer")
 	beego.Router("/api/delete-syncer", &controllers.ApiController{}, "POST:DeleteSyncer")
 	beego.Router("/api/run-syncer", &controllers.ApiController{}, "GET:RunSyncer")
+	beego.Router("/api/test-syncer-db", &controllers.ApiController{}, "POST:TestSyncerDb")
 
 	beego.Router("/api/get-webhooks", &controllers.ApiController{}, "GET:GetWebhooks")
 	beego.Router("/api/get-webhook", &controllers.ApiController{}, "GET:GetWebhook")
@@ -247,6 +255,7 @@ func initAPI() {
 	beego.Router("/api/verify-captcha", &controllers.ApiController{}, "POST:VerifyCaptcha")
 	beego.Router("/api/reset-email-or-phone", &controllers.ApiController{}, "POST:ResetEmailOrPhone")
 	beego.Router("/api/get-captcha", &controllers.ApiController{}, "GET:GetCaptcha")
+	beego.Router("/api/get-verifications", &controllers.ApiController{}, "GET:GetVerifications")
 
 	beego.Router("/api/get-ldap-users", &controllers.ApiController{}, "GET:GetLdapUsers")
 	beego.Router("/api/get-ldaps", &controllers.ApiController{}, "GET:GetLdaps")
@@ -259,6 +268,10 @@ func initAPI() {
 	beego.Router("/api/login/oauth/access_token", &controllers.ApiController{}, "POST:GetOAuthToken")
 	beego.Router("/api/login/oauth/refresh_token", &controllers.ApiController{}, "POST:RefreshToken")
 	beego.Router("/api/login/oauth/introspect", &controllers.ApiController{}, "POST:IntrospectToken")
+
+	beego.Router("/api/get-records", &controllers.ApiController{}, "GET:GetRecords")
+	beego.Router("/api/get-records-filter", &controllers.ApiController{}, "POST:GetRecordsByFilter")
+	beego.Router("/api/add-record", &controllers.ApiController{}, "POST:AddRecord")
 
 	beego.Router("/api/send-email", &controllers.ApiController{}, "POST:SendEmail")
 	beego.Router("/api/send-sms", &controllers.ApiController{}, "POST:SendSms")
@@ -288,4 +301,6 @@ func initAPI() {
 	beego.Router("/cas/:organization/:application/samlValidate", &controllers.RootController{}, "POST:SamlValidate")
 
 	beego.Router("/scim/*", &controllers.RootController{}, "*:HandleScim")
+
+	beego.Router("/api/faceid-signin-begin", &controllers.ApiController{}, "GET:FaceIDSigninBegin")
 }

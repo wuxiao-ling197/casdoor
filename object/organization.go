@@ -31,6 +31,7 @@ type AccountItem struct {
 	Visible    bool   `json:"visible"`
 	ViewRule   string `json:"viewRule"`
 	ModifyRule string `json:"modifyRule"`
+	Regex      string `json:"regex"`
 }
 
 type ThemeData struct {
@@ -53,6 +54,8 @@ type Organization struct {
 
 	DisplayName            string     `xorm:"varchar(100)" json:"displayName"`
 	WebsiteUrl             string     `xorm:"varchar(100)" json:"websiteUrl"`
+	Logo                   string     `xorm:"varchar(200)" json:"logo"`
+	LogoDark               string     `xorm:"varchar(200)" json:"logoDark"`
 	Favicon                string     `xorm:"varchar(100)" json:"favicon"`
 	PasswordType           string     `xorm:"varchar(100)" json:"passwordType"`
 	PasswordSalt           string     `xorm:"varchar(100)" json:"passwordSalt"`
@@ -69,6 +72,8 @@ type Organization struct {
 	InitScore              int        `json:"initScore"`
 	EnableSoftDeletion     bool       `json:"enableSoftDeletion"`
 	IsProfilePublic        bool       `json:"isProfilePublic"`
+	UseEmailAsUsername     bool       `json:"useEmailAsUsername"`
+	EnableTour             bool       `json:"enableTour"`
 
 	MfaItems     []*MfaItem     `xorm:"varchar(300)" json:"mfaItems"`
 	AccountItems []*AccountItem `xorm:"varchar(5000)" json:"accountItems"`
@@ -238,17 +243,21 @@ func AddOrganization(organization *Organization) (bool, error) {
 	return affected != 0, nil
 }
 
-func DeleteOrganization(organization *Organization) (bool, error) {
-	if organization.Name == "built-in" {
-		return false, nil
-	}
-
+func deleteOrganization(organization *Organization) (bool, error) {
 	affected, err := ormer.Engine.ID(core.PK{organization.Owner, organization.Name}).Delete(&Organization{})
 	if err != nil {
 		return false, err
 	}
 
 	return affected != 0, nil
+}
+
+func DeleteOrganization(organization *Organization) (bool, error) {
+	if organization.Name == "built-in" {
+		return false, nil
+	}
+
+	return deleteOrganization(organization)
 }
 
 func GetOrganizationByUser(user *User) (*Organization, error) {
@@ -338,6 +347,16 @@ func GetDefaultApplication(id string) (*Application, error) {
 	}
 
 	err = extendApplicationWithOrg(defaultApplication)
+	if err != nil {
+		return nil, err
+	}
+
+	err = extendApplicationWithSigninItems(defaultApplication)
+	if err != nil {
+		return nil, err
+	}
+
+	err = extendApplicationWithSigninMethods(defaultApplication)
 	if err != nil {
 		return nil, err
 	}
@@ -451,6 +470,16 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	_, err = session.Where("owner=?", oldName).Update(payment)
 	if err != nil {
 		return err
+	}
+
+	record := new(Record)
+	record.Owner = newName
+	record.Organization = newName
+	_, err = session.Where("organization=?", oldName).Update(record)
+	if err != nil {
+		if err.Error() != "no columns found to be updated" {
+			return err
+		}
 	}
 
 	resource := new(Resource)
